@@ -1,0 +1,23 @@
+# Deep Learning
+tensorflow
+numpy
+
+# STTS
+pvporcupine
+SpeechRecognition
+vosk
+
+# Audio
+wave
+sounddevice
+soundfile
+sox # Please install sox from http://sox.sourceforge.net/
+pyttsx3
+
+# VSCODE
+pylint
+black
+
+# Extras
+pipwin # pipwin install pyaudio. PyAudio is used for the data recording inside the tools folder.
+fluxhelper
