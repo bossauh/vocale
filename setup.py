@@ -16,13 +16,13 @@ from distutils.core import setup
 setup(
     name="vocale-python",
     packages=["vocale"],
-    version="0.1",
+    version="0.2",
     license="MIT",
     description="A speech library designed specifically for personal assistants. It features a wake word recognizer, voice activity detection, offline mode, and a speech synthesizer.",
     author="Philippe Mathew",
     author_email="philmattdev@gmail.com",
     url="https://github.com/bossauh/vocale",
-    download_url="https://github.com/bossauh/vocale/releases/tag/v_01",
+    download_url="https://github.com/bossauh/vocale/releases/tag/v_02",
     keywords=["speech", "recognition"],
     install_requires=install_requires,
     classifiers=[
