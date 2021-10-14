@@ -132,13 +132,16 @@ class SpeechRecognizer:
         self.speechLengthMultiplier = kwargs.get("speechLengthMultiplier", 0.15)
         self.beforeWokeBufferLimit = kwargs.get("beforeWokeBufferLimit", 200)
         self.googleRecognizerKey = kwargs.get("googleRecognizerKey", None)
+        self.disableVosk = kwargs.get("disableVosk", False)
 
         # Empty string convert to None
         if self.googleRecognizerKey == "":
             self.googleRecognizerKey = None
 
         # Initialize vosk recognizer
-        self.voskModel = vosk.Model(self.voskPath)
+
+        if not self.disableVosk:
+            self.voskModel = vosk.Model(self.voskPath)
         self.vosk = None
         self.restartVosk()
 
@@ -182,7 +185,10 @@ class SpeechRecognizer:
 
     def _reset(self) -> None:
         self._frames = {"beforeWoke": [], "afterWoke": []}
-        self.vosk.FinalResult()
+        
+        if not self.disableVosk:
+            self.vosk.FinalResult()
+            
         self.woke = False
         self._speech = True
         self._lastRecognizedTime = time.time()
@@ -212,15 +218,19 @@ class SpeechRecognizer:
         """
         Restart just the Vosk recognizer.
         """
-        self.vosk = vosk.KaldiRecognizer(self.voskModel, RATE)
+
+        if not self.disableVosk:
+            self.vosk = vosk.KaldiRecognizer(self.voskModel, RATE)
 
     async def recognize(self) -> dict:
 
         if not self._speech:
 
             if self.offline:
-                text = json.loads(self.vosk.FinalResult())["text"]
-                return {"status": "recognized", "msg": text}
+                if not self.disableVosk:
+                    text = json.loads(self.vosk.FinalResult())["text"]
+                    return {"status": "recognized", "msg": text}
+                return {"status": "error", "msg": f"both disableVosk and offline is True. Can't recognize with nothing to recognize with."}
 
             frames = self._frames["beforeWoke"][-10:] + self._frames["afterWoke"]
 
@@ -310,11 +320,15 @@ class SpeechRecognizer:
 
         """
         Starts listening for the provided wake words both using pvporcupine and vosk.
+        Vosk will not be used if self.disableVosk is True
         """
 
-        # Get vosk information
-        self.vosk.AcceptWaveform(data)
-        partial = json.loads(self.vosk.PartialResult())
+        if not self.disableVosk:
+            # Get vosk information
+            self.vosk.AcceptWaveform(data)
+            partial = json.loads(self.vosk.PartialResult())
+        else:
+            partial = {"partial": ""}
 
         # Get pvporcupine wake word information
         p = -1
@@ -323,18 +337,23 @@ class SpeechRecognizer:
 
         # Check if a wake word is recognized using both vosk and porcupine if porcupine is successfully initialized
         if any(k in partial["partial"] for k in self.wakewords) or p >= 0:
-            self.vosk.FinalResult()
-            return True
 
+            if not self.disableVosk:
+                self.vosk.FinalResult()
+
+            return True
+        
         # Constantly collect before wake word frames
         if len(self._frames["beforeWoke"]) > self.beforeWokeBufferLimit:
             self._frames["beforeWoke"].pop(0)
         self._frames["beforeWoke"].append(data)
+        
 
-        # Prevent active listening from getting way too big, will cause a memory leak if not implemented
-        if len(partial["partial"].split()) > 25:
-            self.vosk.FinalResult()
-            self.restartVosk()
+        if not self.disableVosk:
+            # Prevent active listening from getting way too big, will cause a memory leak if not implemented
+            if len(partial["partial"].split()) > 25:
+                self.vosk.FinalResult()
+                self.restartVosk()
 
         vad = await self.vad.isSpeech(data)
         if vad:
@@ -345,8 +364,10 @@ class SpeechRecognizer:
         length = time.time() - self.__prevSpeaking
 
         if length > 20.0:
-            self.vosk.FinalResult()
-            self.restartVosk()
+
+            if not self.disableVosk:
+                self.vosk.FinalResult()
+                self.restartVosk()
             self.__prevSpeaking = time.time()
 
         # Emit what the vosk recognizer is currently hearing
@@ -384,18 +405,20 @@ class SpeechRecognizer:
                         await self.wakeUp()
 
                     if self.woke:
+                        
+                        partial = None
+                        if not self.disableVosk:
+                            # Give vosk the speech data
+                            self.vosk.AcceptWaveform(data)
 
-                        # Give vosk the speech data
-                        self.vosk.AcceptWaveform(data)
-
-                        # Realtime Partial data
-                        partial = list(json.loads(self.vosk.PartialResult()).items())[
-                            0
-                        ][1].strip()
-                        if partial:
-                            await self.callback(
-                                {"status": "recognizedPartial", "msg": partial}
-                            )
+                            # Realtime Partial data
+                            partial = list(json.loads(self.vosk.PartialResult()).items())[
+                                0
+                            ][1].strip()
+                            if partial:
+                                await self.callback(
+                                    {"status": "recognizedPartial", "msg": partial}
+                                )
 
                         # Perform voice activity detection
                         vad = await self.vad.isSpeech(data)
@@ -456,7 +479,7 @@ async def main(loop: asyncio.BaseEventLoop) -> None:
 
     global recognizer
     recognizer = SpeechRecognizer(
-        ["friday"],
+        ["jarvis"],
         [1.0],
         osInterface.joinPath("models/vad.h5"),
         0.9,
@@ -466,6 +489,7 @@ async def main(loop: asyncio.BaseEventLoop) -> None:
         loop,
         speechLengths=(5.0, 1.2),
         offline=False,
+        disableVosk=True
     )
 
     await recognizer.start(blocking=True)
