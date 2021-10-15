@@ -434,7 +434,11 @@ class SpeechRecognizer:
                         if self.__prevSpeaking:
                             self.__length = time.time() - self.__prevSpeaking
 
-                            if self.__count == 0 or not partial:
+                            comparator = self.__count == 0 or not partial
+                            if self.disableVosk:
+                                comparator = self.__count == 0
+
+                            if comparator:
                                 self._speechLength = self._startSpeechLength
                             else:
                                 self._speechLength = self._realSpeechLength
