@@ -1,7 +1,7 @@
 install_requires = [
     "tensorflow",
     "numpy",
-    "pvporcupine",
+    "pvporcupine==1.9.0",
     "speechrecognition",
     "vosk",
     "wave",
