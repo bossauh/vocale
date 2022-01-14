@@ -230,7 +230,7 @@ class SpeechRecognizer:
                 if not self.disableVosk:
                     text = json.loads(self.vosk.FinalResult())["text"]
                     return {"status": "recognized", "msg": text}
-                return {"status": "error", "msg": f"both disableVosk and offline is True. Can't recognize with nothing to recognize with."}
+                return {"status": "error", "msg": f"both disableVosk and offline is True. Can't recognize with nothing to recognize with.", "exception": None}
 
             frames = self._frames["beforeWoke"][-10:] + self._frames["afterWoke"]
 
@@ -250,6 +250,7 @@ class SpeechRecognizer:
                 return {
                     "status": "error",
                     "msg": f"Failed to convert cache file to AudioData. ({e})",
+                    "exception": e
                 }
 
             # Finally attempt to recognize using google's recognizer from speechrecognition module
@@ -264,6 +265,7 @@ class SpeechRecognizer:
                 callback = {
                     "status": "error",
                     "msg": f"Failed to recognize audio. ({e})",
+                    "exception": e
                 }
             finally:
                 return callback
